@@ -8,12 +8,13 @@ from langchain.document_loaders import PyPDFLoader
 from transformers import T5Tokenizer, T5ForConditionalGeneration, pipeline
 import torch
 import base64
+import os 
 
 # Download necessary NLTK resources
 nltk.download('punkt')
-
+path = os.path.dirname(os.path.realpath(__file__))
 # Load the model and tokenizer
-checkpoint = "/workspaces/blank-app/LaMini-Flan-T5-248M"
+checkpoint = path+"/LaMini-Flan-T5-248M"
 tokenizer = T5Tokenizer.from_pretrained(checkpoint)
 base_model = T5ForConditionalGeneration.from_pretrained(checkpoint, device_map='auto', torch_dtype=torch.float32)
 
