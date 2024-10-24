@@ -14,7 +14,7 @@ import os
 nltk.download('punkt')
 path = os.path.dirname(os.path.realpath(__file__))
 # Load the model and tokenizer
-checkpoint = "lmsys/LaMini-Flan-T5-248M"
+checkpoint = "/mount/src/blank-app-4/LaMini-Flan-T5-248M"
 tokenizer = T5Tokenizer.from_pretrained(checkpoint)
 base_model = T5ForConditionalGeneration.from_pretrained(checkpoint, device_map='auto', torch_dtype=torch.float32)
 
