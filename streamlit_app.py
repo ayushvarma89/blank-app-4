@@ -70,6 +70,11 @@ if uploaded_file:
     with open(filepath, "wb") as temp_file:
         temp_file.write(uploaded_file.read())
 
+    # Convert the summary to audio
+    st.info("Converting summary to audio...")
+    audio_file = text_to_audio(summary)
+    st.audio(audio_file, format='audio/mp3')
+    
     st.info("Extracting text from PDF...")
     pdf_text = pdf_to_text(filepath)
 
@@ -78,11 +83,6 @@ if uploaded_file:
     summary = summarize_text(pdf_text)
     st.success("Summarization complete!")
     st.write(summary)
-
-    # Convert the summary to audio
-    st.info("Converting summary to audio...")
-    audio_file = text_to_audio(summary)
-    st.audio(audio_file, format='audio/mp3')
 
     # Display the PDF and summary side by side
     col1, col2 = st.columns(2)
