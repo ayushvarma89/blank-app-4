@@ -2,57 +2,50 @@ import streamlit as st
 from gtts import gTTS
 from PyPDF2 import PdfReader
 import nltk
-from nltk.tokenize import sent_tokenize
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.document_loaders import PyPDFLoader
 from transformers import T5Tokenizer, T5ForConditionalGeneration, pipeline
 import torch
 import base64
-import os 
+from io import BytesIO
 
 # Download necessary NLTK resources
 nltk.download('punkt')
-path = os.path.dirname(os.path.realpath(__file__))
+
 # Load the model and tokenizer
-checkpoint = path+"/LaMini-Flan-T5-248M"
+checkpoint = "LaMini-Flan-T5-248M"
 tokenizer = T5Tokenizer.from_pretrained(checkpoint)
 base_model = T5ForConditionalGeneration.from_pretrained(checkpoint, device_map='auto', torch_dtype=torch.float32)
 
-# Function to convert PDF to speech
-def pdf_to_speech(pdf_file):
+# Function to extract text from PDF
+def extract_text_from_pdf(pdf_file):
     pdf_reader = PdfReader(pdf_file)
-    total_pages = len(pdf_reader.pages)
-
-    # Extract text from all pages
     full_text = ""
-    for page_num in range(total_pages):
-        page = pdf_reader.pages[page_num]
+    for page in pdf_reader.pages:
         full_text += page.extract_text() + " "
+    return full_text
 
-    return full_text  # Return the extracted text
-
+# Convert text to audio
 def text_to_audio(text):
     tts = gTTS(text=text, lang='en')
-    audio_file = "output.mp3"
-    tts.save(audio_file)
-
-    return audio_file  # Return the generated audio file path
+    audio_buffer = BytesIO()
+    tts.save(audio_buffer)
+    audio_buffer.seek(0)
+    return audio_buffer
 
 # Function for file preprocessing
-def file_preprocessing(file):
-    loader = PyPDFLoader(file)
-    pages = loader.load_and_split()
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=200, chunk_overlap=50)
-    texts = text_splitter.split_documents(pages)
+def preprocess_text_from_pdf(pdf_file):
+    pdf_reader = PdfReader(pdf_file)
+    full_text = extract_text_from_pdf(pdf_file)
     
-    final_texts = ""
-    for text in texts:
-        final_texts += text.page_content
-    return final_texts
+    # Split text into chunks
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=200, chunk_overlap=50)
+    chunks = text_splitter.split_text(full_text)
+    
+    return chunks
 
-# LLM pipeline
-def llm_pipeline(filepath):
-    pipe_sum = pipeline(
+# LLM pipeline for summarization
+def summarize_text(text):
+    summarization_pipeline = pipeline(
         'summarization',
         model=base_model,
         tokenizer=tokenizer,
@@ -60,51 +53,39 @@ def llm_pipeline(filepath):
         min_length=50
     )
     
-    input_text = file_preprocessing(filepath)
-    result = pipe_sum(input_text)
-    summary = result[0]['summary_text']  # Corrected key name
+    summary = summarization_pipeline(text, truncation=True)[0]['summary_text']
     return summary
 
+# Function to display PDF
 @st.cache_data
-# Function to display the PDF
-def displayPDF(file):
-    with open(file, "rb") as f:
-        base64_pdf = base64.b64encode(f.read()).decode('utf-8')
-
-    # Embedding PDF in HTML
+def display_pdf(file):
+    base64_pdf = base64.b64encode(file.read()).decode('utf-8')
     pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="600" type="application/pdf"></iframe>'
     st.markdown(pdf_display, unsafe_allow_html=True)
 
-# Streamlit app
+# Streamlit App
 st.title("Document Summarization and PDF to Speech App")
 
+# File Uploader
 uploaded_file = st.file_uploader("Upload your PDF file", type=["pdf"])
 
 if uploaded_file:
-    # Create temporary file to save uploaded file
-    filepath = "temp_" + uploaded_file.name
-    with open(filepath, "wb") as temp_file:
-        temp_file.write(uploaded_file.read())
 
-    st.info("Converting PDF to speech...")
-    pdf_text = pdf_to_speech(filepath)
-    audio_file = text_to_audio(pdf_text)
-    st.audio(audio_file, format='audio/mp3')
+     # Convert the extracted text to speech
+    st.info("Converting PDF text to speech...")
+    audio_buffer = text_to_audio(pdf_text)
+    st.audio(audio_buffer, format='audio/mp3')
 
-    # Split into two columns for display
-    col1, col2 = st.columns(2)
+    # Display PDF in the app
+    st.info("Uploaded PDF")
+    display_pdf(uploaded_file)
 
-    # Display PDF in the first column
-    with col1:
-        st.info("Uploaded PDF")
-        displayPDF(filepath)
-
-    # Summarize the PDF in the second column
-    with col2:
-        st.info("Generating Summary...")
-        summary = llm_pipeline(filepath)
-        st.success("Summarization Complete")
-        st.write(summary)
-
-    # Convert PDF text to speech
+    # Extract text from the PDF
+    st.info("Extracting text from PDF...")
+    pdf_text = extract_text_from_pdf(uploaded_file)
     
+    # Summarize the extracted text
+    st.info("Generating summary...")
+    summary = summarize_text(pdf_text)
+    st.success("Summarization Complete")
+    st.write(summary)
