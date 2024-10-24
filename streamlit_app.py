@@ -83,4 +83,37 @@ def displayPDF(file):
     with open(file, "rb") as f:
         base64_pdf = base64.b64encode(f.read()).decode('utf-8')
 
-    pdf_display = f'<ifr
+    pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="600" type="application/pdf"></iframe>'
+    st.markdown(pdf_display, unsafe_allow_html=True)
+
+# Streamlit UI
+st.title("Document Summarization and PDF to Speech App")
+
+uploaded_file = st.file_uploader("Upload your PDF file", type=["pdf"])
+
+if uploaded_file:
+    
+    filepath = "temp_" + uploaded_file.name
+    with open(filepath, "wb") as temp_file:
+        temp_file.write(uploaded_file.read())
+
+    st.info("Converting PDF to speech...")
+    pdf_text = pdf_to_speech(filepath)
+    audio_file = text_to_audio(pdf_text)
+    st.audio(audio_file, format='audio/mp3')
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.info("Uploaded PDF")
+        displayPDF(filepath)
+
+    with col2:
+        st.info("Generating Summary...")
+        summary = llm_pipeline(filepath)
+        st.success("Summarization Complete")
+        st.write(summary)
+
+    # Cleanup temp files
+    os.remove(filepath)
+    os.remove(audio_file)
