@@ -73,6 +73,11 @@ if uploaded_file:
     
     st.info("Extracting text from PDF...")
     pdf_text = pdf_to_text(filepath)
+    
+    #Convert text to audio
+    st.info("Converting text to audio...")
+    audio_file = text_to_audio(pdf_text)
+    st.audio(audio_file, format='audio/mp3')
 
     # Summarize the extracted text
     st.info("Summarizing the document...")
